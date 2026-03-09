@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bybit 市场份额分析 · 智能看板</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#08090d; --surface:#0f1117; --surface2:#161820; --surface3:#1c1f2e;
+  --border:#1e2130; --accent:#f5a623; --red:#e05d5d; --green:#4ec9a0;
+  --blue:#5b9cf6; --text:#e8eaf0; --muted:#5a5f72;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;line-height:1.6;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(245,166,35,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(245,166,35,.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ── LAYOUT ── */
+.app-layout{display:flex;min-height:100vh;position:relative;z-index:1;}
+
+/* SIDEBAR */
+.sidebar{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border);}
+.sidebar-logo-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;letter-spacing:-.5px;}
+.sidebar-logo-sub{font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-top:3px;}
+.sidebar-nav{padding:12px 0;flex:1;}
+.nav-group-label{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:10px 20px 6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;border-left:2px solid transparent;}
+.nav-item:hover{color:var(--text);background:var(--surface2);}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(245,166,35,.06);}
+.nav-item svg{width:14px;height:14px;flex-shrink:0;}
+.nav-meta{padding:10px 20px 6px;font-size:10px;color:var(--muted);line-height:1.6;}
+
+/* MAIN */
+.main-content{flex:1;min-width:0;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── DASHBOARD ── */
+.dash-wrap{padding:40px 40px 80px;max-width:1200px;}
+.page-header{margin-bottom:36px;}
+.page-tag{font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.page-tag::before{content:'';width:16px;height:1px;background:var(--accent);display:block;}
+.page-title{font-family:'Syne',sans-serif;font-size:clamp(22px,3vw,36px);font-weight:800;letter-spacing:-1px;color:#fff;line-height:1.1;}
+.page-title span{color:var(--accent);}
+.page-meta{margin-top:10px;color:var(--muted);font-size:11px;letter-spacing:1px;}
+.method-note{margin-top:14px;border:1px solid rgba(78,201,160,.2);background:rgba(78,201,160,.04);padding:10px 14px;font-size:11px;color:#7ecfb8;line-height:1.7;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:40px;}
+.stat-card{background:var(--surface);padding:20px;}
+.stat-label{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1;}
+.stat-val.red{color:var(--red);}.stat-val.green{color:var(--green);}.stat-val.orange{color:var(--accent);}
+.stat-sub{margin-top:5px;font-size:10px;color:var(--muted);}
+
+.section{margin-bottom:48px;}
+.section-hdr{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;}
+.section-num{font-family:'Syne',sans-serif;font-size:10px;color:var(--accent);letter-spacing:2px;}
+.section-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff;}
+.section-desc{color:var(--muted);font-size:11px;margin-bottom:20px;line-height:1.8;max-width:800px;}
+
+.overview-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border:1px solid var(--border);}
+.ov-card{background:var(--surface);padding:12px 13px;transition:background .15s;cursor:pointer;}
+.ov-card:hover{background:var(--surface2);}
+.ov-card.declining{border-top:2px solid var(--red);}
+.ov-card.growing{border-top:2px solid var(--green);}
+.ov-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;margin-bottom:3px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ov-shares{font-size:9px;color:var(--muted);margin-bottom:3px;}
+.ov-delta{font-size:10px;font-weight:600;margin-top:3px;}
+.ov-delta.neg{color:var(--red);}.ov-delta.pos{color:var(--green);}
+
+.drill-section{margin-bottom:40px;}
+.drill-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.drill-region-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;}
+.drill-badge{font-size:10px;letter-spacing:1px;padding:2px 9px;border-radius:2px;}
+.drill-badge.neg{background:rgba(224,93,93,.12);color:var(--red);}
+.drill-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.drill-card{border:1px solid var(--border);background:var(--surface);overflow:hidden;}
+.card-hdr{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.card-body{padding:16px;}
+.trend-stats{display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap;}
+.ts-label{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;}
+.ts-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.chart-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;}
+.gainer-row{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);gap:8px;}
+.gainer-row:last-child{border-bottom:none;}
+.g-rank{font-family:'Syne',sans-serif;font-size:10px;color:var(--muted);min-width:20px;}
+.g-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;min-width:100px;}
+.g-bar{flex:2;position:relative;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.g-bar-fill{position:absolute;top:0;left:0;height:100%;border-radius:2px;}
+.g-shares{font-size:9px;color:var(--muted);min-width:110px;text-align:right;}
+.g-delta{font-size:11px;font-weight:600;min-width:68px;text-align:right;}
+.g-delta.pos{color:var(--green);}.g-delta.neg{color:var(--red);}
+
+.insight-box{border:1px solid rgba(245,166,35,.2);background:rgba(245,166,35,.03);padding:20px 24px;margin-top:32px;}
+.insight-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;letter-spacing:1px;}
+.insight-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.insight-list li{color:#b0b4c4;font-size:11px;padding-left:16px;position:relative;line-height:1.8;}
+.insight-list li::before{content:'→';position:absolute;left:0;color:var(--accent);}
+
+/* ── CHAT ── */
+.chat-wrap{display:flex;flex-direction:column;height:100vh;}
+.chat-header{padding:24px 32px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.chat-header-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;}
+.chat-header-sub{font-size:11px;color:var(--muted);line-height:1.6;}
+
+/* API status banner */
+.api-status-banner{display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 12px;border-radius:2px;font-size:11px;width:fit-content;}
+.api-status-banner.ready{background:rgba(78,201,160,.08);border:1px solid rgba(78,201,160,.25);color:#7ecfb8;}
+.api-status-banner.not-ready{background:rgba(224,93,93,.08);border:1px solid rgba(224,93,93,.25);color:#e05d5d;}
+.api-status-banner.loading{background:rgba(91,156,246,.08);border:1px solid rgba(91,156,246,.2);color:var(--blue);}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.status-dot.green{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-dot.red{background:var(--red);}
+.status-dot.blue{background:var(--blue);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.chat-badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.chat-badge{font-size:10px;letter-spacing:1px;padding:4px 10px;border-radius:2px;background:rgba(91,156,246,.08);color:var(--blue);border:1px solid rgba(91,156,246,.2);cursor:pointer;transition:all .15s;}
+.chat-badge:hover{background:rgba(91,156,246,.16);}
+
+.chat-messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:20px;}
+.chat-messages::-webkit-scrollbar{width:4px;}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.msg{display:flex;gap:12px;max-width:100%;}
+.msg.user{flex-direction:row-reverse;}
+.msg-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.msg.user .msg-avatar{background:var(--accent);color:#000;font-family:'Syne',sans-serif;}
+.msg.ai .msg-avatar{background:rgba(91,156,246,.15);color:var(--blue);border:1px solid rgba(91,156,246,.3);font-family:'Syne',sans-serif;}
+.msg-bubble{max-width:calc(100% - 50px);padding:12px 16px;border-radius:2px;font-size:12px;line-height:1.8;}
+.msg.user .msg-bubble{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:var(--text);}
+.msg.ai .msg-bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);}
+.msg-bubble table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px;}
+.msg-bubble th{background:var(--surface2);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;letter-spacing:1px;}
+.msg-bubble td{padding:6px 10px;border-bottom:1px solid var(--border);}
+.msg-bubble tr:last-child td{border-bottom:none;}
+.msg-bubble strong{color:var(--accent);font-weight:600;}
+.msg-bubble code{background:var(--surface2);padding:1px 5px;border-radius:2px;font-size:11px;color:#a8c4ff;}
+.msg-bubble ul,.msg-bubble ol{padding-left:18px;margin:6px 0;}
+.msg-bubble li{margin:3px 0;}
+.msg-bubble h3,.msg-bubble h4{font-family:'Syne',sans-serif;color:#fff;margin:10px 0 4px;}
+.msg-bubble .pct-pos{color:var(--green);}.msg-bubble .pct-neg{color:var(--red);}
+.msg-time{font-size:9px;color:var(--muted);margin-top:4px;}
+.msg.user .msg-time{text-align:right;}
+
+.msg-typing .msg-bubble{background:var(--surface);border:1px solid var(--border);}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:2px 0;}
+.typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce 1.2s infinite;}
+.typing-dots span:nth-child(2){animation-delay:.2s;}
+.typing-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+.chat-input-area{padding:16px 32px 24px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.chat-input-row{display:flex;gap:10px;align-items:flex-end;}
+.chat-input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;resize:none;outline:none;border-radius:2px;min-height:42px;max-height:120px;line-height:1.6;transition:border-color .15s;}
+.chat-input:focus{border-color:rgba(245,166,35,.4);}
+.chat-input::placeholder{color:var(--muted);}
+.chat-input:disabled{opacity:.5;cursor:not-allowed;}
+.send-btn{width:42px;height:42px;background:var(--accent);border:none;border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;}
+.send-btn:hover{opacity:.85;}
+.send-btn:disabled{opacity:.4;cursor:not-allowed;}
+.send-btn svg{width:16px;height:16px;}
+.chat-hint{margin-top:6px;font-size:10px;color:var(--muted);}
+
+.dash-footer{border-top:1px solid var(--border);padding:20px 40px;color:var(--muted);font-size:10px;display:flex;justify-content:space-between;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:1000px){.overview-grid{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:700px){
+  .sidebar{width:60px;}
+  .sidebar-logo-title,.sidebar-logo-sub,.nav-group-label,.nav-item span,.nav-meta{display:none;}
+  .nav-item{justify-content:center;padding:12px;}
+  .drill-layout{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .overview-grid{grid-template-columns:repeat(3,1fr);}
+  .dash-wrap{padding:20px 16px 60px;}
+  .chat-messages,.chat-input-area{padding:16px;}
+}
+</style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-title">Bybit Intel</div>
+      <div class="sidebar-logo-sub">MARKET SHARE</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">分析</div>
+      <div class="nav-item active" onclick="switchPage('dashboard')" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>数据看板</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('chat')" id="nav-chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>智能问答</span>
+      </div>
+      <div class="nav-group-label" style="margin-top:12px">数据</div>
+      <div class="nav-meta">
+        7,312 条记录<br>28 个地区<br>160+ 交易所<br>Oct25 – Jan26
+      </div>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-content">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="dash-wrap">
+        <div class="page-header">
+          <div class="page-tag">竞争情报 · 数据看板</div>
+          <div class="page-title">Bybit <span>地区本地市占</span><br>深度分析</div>
+          <div class="page-meta">数据周期：2025年10月 → 2026年1月（4个月）&nbsp;|&nbsp; 覆盖：28个有效地区 &nbsp;|&nbsp; 7,312条数据记录</div>
+          <div class="method-note">📐 <strong>分析口径</strong>：每个地区独立计算本地市占（以该地区所有交易所下载量总和为分母），反映 Bybit 在各市场内的真实竞争地位变化。</div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">本地市占跌幅最大</div>
+            <div class="stat-val red">韩国</div>
+            <div class="stat-sub">−14.38 ppt · 19.4% → 5.1%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">本地市占涨幅最大</div>
+            <div class="stat-val green">MENA</div>
+            <div class="stat-sub">+3.56 ppt · 8.8% → 12.3%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">下滑地区数</div>
+            <div class="stat-val red" id="stat-declining">—</div>
+            <div class="stat-sub" id="stat-declining-sub">计算中...</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">增长地区数</div>
+            <div class="stat-val orange" id="stat-growing">—</div>
+            <div class="stat-sub" id="stat-growing-sub">计算中...</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-hdr"><div class="section-num">01 —</div><div class="section-title">各地区 Bybit 本地市占变化总览</div></div>
+          <div class="section-desc">红框为下滑地区（可点击跳至下钻分析），绿框为增长地区。所有数值为地区内本地口径。</div>
+          <div class="overview-grid" id="overviewGrid"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-hdr"><div class="section-num">02 —</div><div class="section-title">下滑地区深度下钻 — 谁在抢走份额？</div></div>
+          <div class="section-desc">针对本地市占下滑的地区，展示 Bybit 的月度走势，并揭示同期在该地区内涨幅最大的竞争对手。</div>
+          <div id="decliningDrills"></div>
+        </div>
+
+        <div class="insight-box">
+          <div class="insight-title">⬡ 核心结论（Oct 2025 – Jan 2026）</div>
+          <ul class="insight-list">
+            <li><strong>韩国（−14.38 ppt）</strong>最严重失守：从 19.4% 急跌至 5.1%。Bithumb 强势反扑（+5.49 ppt），OKX（+3.84 ppt）和 Coinone（+3.04 ppt）同步扩张，资金明显回流本土。</li>
+            <li><strong>哈萨克斯坦（−7.59 ppt）</strong>：Binance 从 22.3% 暴增至 52.3%（+30.0 ppt），几乎单方面垄断当地市场。</li>
+            <li><strong>独联体 CIS（−4.54 ppt）</strong>：Binance（+4.34 ppt）和 MEXC（+3.19 ppt）双重扩张，PIONEX 新入场（+1.18 ppt）。</li>
+            <li><strong>拉丁美洲（−3.43 ppt）</strong>：12月曾冲至 12.3%，1月大幅回落。Bitso 本土平台复苏（+4.43 ppt）。</li>
+            <li><strong>唯一明确增长：MENA（+3.56 ppt）</strong>，但 OKX（+6.42 ppt）和 MEXC（+5.46 ppt）同样在扩张。</li>
+            <li><strong>整体信号</strong>：22个地区同步下滑，Oct 2025 可能是 Bybit 的阶段性本地市占高点。可切换至<span style="color:var(--accent);cursor:pointer" onclick="switchPage('chat')">智能问答</span>进行深度挖掘。</li>
+          </ul>
+        </div>
+
+        <div class="dash-footer">
+          <span>数据来源：App Store 下载量 · 分析口径：各地区独立本地市占 · Oct 2025 → Jan 2026</span>
+          <span>Bybit Intel v1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT PAGE -->
+    <div class="page" id="page-chat">
+      <div class="chat-wrap">
+        <div class="chat-header">
+          <div class="chat-header-title">数据智能问答</div>
+          <div class="chat-header-sub">基于 7,312 条真实下载量数据（Oct–Jan，28个地区，160+ 交易所），由 Claude AI 驱动。</div>
+          <div id="apiStatusBanner" class="api-status-banner loading">
+            <div class="status-dot blue"></div>
+            <span>正在检测服务状态...</span>
+          </div>
+          <div class="chat-badges">
+            <div class="chat-badge" onclick="quickAsk('哪些交易所在哪些地区增长最快？')">📈 增长最快交易所</div>
+            <div class="chat-badge" onclick="quickAsk('Binance 在各地区的市占变化情况如何？')">🔍 Binance 动态</div>
+            <div class="chat-badge" onclick="quickAsk('MEXC 在哪些地区表现最强？')">📊 MEXC 分析</div>
+            <div class="chat-badge" onclick="quickAsk('在韩国市场，各交易所的完整市占排名是什么？')">🇰🇷 韩国详情</div>
+            <div class="chat-badge" onclick="quickAsk('哪些地区的市场集中度最高（前3名份额之和）？')">🏆 市场集中度</div>
+            <div class="chat-badge" onclick="quickAsk('哪些交易所在多个地区同步大幅增长？')">🌍 全球扩张者</div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg ai">
+            <div class="msg-avatar">AI</div>
+            <div>
+              <div class="msg-bubble">
+                你好！我已加载完整市场份额数据集，可回答任何关于这份数据的问题。<br><br>
+                数据覆盖：<strong>2025年10月 – 2026年1月</strong>，共 <strong>28个地区</strong>、<strong>160+ 家交易所</strong>、<strong>7,312条记录</strong>。<br><br>
+                你可以问我：
+                <ul style="margin-top:8px">
+                  <li>某个交易所在特定地区的市占走势</li>
+                  <li>某地区内所有交易所的排名对比</li>
+                  <li>哪些竞争对手在侵蚀 Bybit 的份额</li>
+                  <li>跨地区的横向对比分析</li>
+                </ul>
+              </div>
+              <div class="msg-time">系统</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="chatInput"
+              placeholder="输入你的问题，例如：哪个地区的竞争最激烈？"
+              rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+          <div class="chat-hint">按 Enter 发送，Shift+Enter 换行</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+/* ── UTILS ── */
+const pct = v => (v*100).toFixed(2)+'%';
+const delta = v => { const s=(v*100).toFixed(2); return v>=0?`+${s} ppt`:`${s} ppt`; };
+const regionNames = {
+  Africa:'非洲',Brazil:'巴西',CIS:'独联体（CIS）','Czech & Slovak':'捷克&斯洛伐克',
+  France:'法国',Georgia:'格鲁吉亚',Germany:'德国',HongKong:'香港',
+  India:'印度',Indonesia:'印度尼西亚',Italy:'意大利',Japan:'日本',
+  Kazakhstan:'哈萨克斯坦',Korea:'韩国',Latam:'拉丁美洲',MENA:'中东北非（MENA）',
+  Mandarin:'中文市场','Mini-EU':'欧盟小市场','Mini-Global':'全球小市场',
+  Nordics:'北欧',Poland:'波兰',Portugal:'葡萄牙',SEA:'东南亚',Spain:'西班牙',
+  Thailand:'泰国',Turkey:'土耳其','United Kingdom':'英国',
+  Vietnam:'越南',Malaysia:'马来西亚',Netherlands:'荷兰'
+};
+
+function sparkline(vals,color,w,h,filled){
+  if(!vals||!vals.length) return '';
+  const mn=Math.min(...vals),mx=Math.max(...vals),range=mx-mn||0.001;
+  const pts=vals.map((v,i)=>{
+    const x=(i/(vals.length-1))*w,y=h-4-((v-mn)/range)*(h-8);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const ly=h-4-((vals[vals.length-1]-mn)/range)*(h-8);
+  let s=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible">`;
+  if(filled) s+=`<polygon points="0,${h} ${pts} ${w},${h}" fill="${color}" opacity="0.12"/>`;
+  s+=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s+=`<circle cx="${w}" cy="${ly.toFixed(1)}" r="3" fill="${color}"/>`;
+  return s+'</svg>';
+}
+
+/* ── PAGE SWITCH ── */
+function switchPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if(name==='chat') setTimeout(()=>document.getElementById('chatInput').focus(),100);
+}
+
+/* ── DASHBOARD ── */
+function buildDashboard(){
+  const summary=BYBIT_DATA.summary;
+  const sorted=Object.entries(summary)
+    .filter(([,d])=>d.bybit_change!==null)
+    .sort((a,b)=>a[1].bybit_change-b[1].bybit_change);
+  const declining=sorted.filter(([,d])=>d.bybit_change<0);
+  const growing=sorted.filter(([,d])=>d.bybit_change>0);
+
+  document.getElementById('stat-declining').textContent=declining.length;
+  document.getElementById('stat-declining-sub').textContent=declining.slice(0,3).map(([r])=>regionNames[r]||r).join(' / ');
+  document.getElementById('stat-growing').textContent=growing.length;
+  document.getElementById('stat-growing-sub').textContent=growing.slice(-3).reverse().map(([r])=>regionNames[r]||r).join(' / ');
+
+  const grid=document.getElementById('overviewGrid');
+  sorted.forEach(([r,d])=>{
+    const down=d.bybit_change<0,color=down?'#e05d5d':'#4ec9a0';
+    const card=document.createElement('div');
+    card.className=`ov-card ${down?'declining':'growing'}`;
+    card.innerHTML=`<div class="ov-name" title="${regionNames[r]||r}">${regionNames[r]||r}</div>
+      <div class="ov-shares">${pct(d.bybit_first)} → ${pct(d.bybit_last)}</div>
+      ${sparkline(d.bybit_trend,color,96,26,true)}
+      <div class="ov-delta ${down?'neg':'pos'}">${delta(d.bybit_change)}</div>`;
+    if(down) card.onclick=()=>document.getElementById('drill-'+r)?.scrollIntoView({behavior:'smooth',block:'start'});
+    grid.appendChild(card);
+  });
+
+  const DATE_LABELS=['10月','11月','12月','1月'];
+  const container=document.getElementById('decliningDrills');
+  declining.forEach(([r,d])=>{
+    const gainers=d.top_gainers.filter(g=>g.change>0).slice(0,5);
+    const maxC=Math.max(...gainers.map(g=>g.change),0.001);
+    const rows=gainers.map((g,i)=>{
+      const bp=Math.min((g.change/maxC)*100,100);
+      return `<div class="gainer-row">
+        <div class="g-rank">#${i+1}</div>
+        <div class="g-name">${g.exchange}</div>
+        <div class="g-bar"><div class="g-bar-fill" style="width:${bp}%;background:#4ec9a0"></div></div>
+        <div class="g-shares">${pct(g.first_share)} → ${pct(g.last_share)}</div>
+        <div class="g-delta pos">${delta(g.change)}</div>
+      </div>`;
+    }).join('');
+    const sec=document.createElement('div');
+    sec.className='drill-section'; sec.id='drill-'+r;
+    sec.innerHTML=`<div class="drill-hdr">
+        <div class="drill-region-name">${regionNames[r]||r}</div>
+        <div class="drill-badge neg">Bybit 本地市占 ${delta(d.bybit_change)}</div>
+      </div>
+      <div class="drill-layout">
+        <div class="drill-card">
+          <div class="card-hdr">BYBIT 本地市占月度走势</div>
+          <div class="card-body">
+            <div class="trend-stats">
+              <div><div class="ts-label">起点 Oct 2025</div><div class="ts-val" style="color:#e8eaf0">${pct(d.bybit_first)}</div></div>
+              <div><div class="ts-label">终点 Jan 2026</div><div class="ts-val" style="color:#e05d5d">${pct(d.bybit_last)}</div></div>
+              <div><div class="ts-label">净变化</div><div class="ts-val" style="color:#e05d5d">${delta(d.bybit_change)}</div></div>
+            </div>
+            ${sparkline(d.bybit_trend,'#e05d5d',420,80,true)}
+            <div class="chart-labels">${DATE_LABELS.map(l=>`<span>${l}</span>`).join('')}</div>
+          </div>
+        </div>
+        <div class="drill-card">
+          <div class="card-hdr">同期该地区本地市占涨幅 TOP 5</div>
+          ${rows||'<div style="padding:16px;color:var(--muted);font-size:11px">暂无数据</div>'}
+        </div>
+      </div>`;
+    container.appendChild(sec);
+  });
+}
+
+/* ── CHAT ── */
+let chatHistory=[];
+let isLoading=false;
+let apiReady=false;
+
+async function checkApiStatus(){
+  const banner=document.getElementById('apiStatusBanner');
+  try {
+    const r=await fetch('/api/config');
+    const cfg=await r.json();
+    apiReady=cfg.apiReady;
+    if(apiReady){
+      banner.className='api-status-banner ready';
+      banner.innerHTML='<div class="status-dot green"></div><span>Claude API 已就绪，可开始提问</span>';
+    } else {
+      banner.className='api-status-banner not-ready';
+      banner.innerHTML='<div class="status-dot red"></div><span>服务端未配置 API Key，请联系管理员</span>';
+      document.getElementById('chatInput').disabled=true;
+      document.getElementById('sendBtn').disabled=true;
+    }
+  } catch(e) {
+    banner.className='api-status-banner not-ready';
+    banner.innerHTML='<div class="status-dot red"></div><span>无法连接服务，请刷新页面重试</span>';
+  }
+}
+
+function getTime(){ return new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}); }
+
+function appendMsg(role,content,isTyping=false){
+  const msgs=document.getElementById('chatMessages');
+  const div=document.createElement('div');
+  div.className=`msg ${role}${isTyping?' msg-typing':''}`;
+  if(isTyping){
+    div.id='typingIndicator';
+    div.innerHTML=`<div class="msg-avatar">AI</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  } else {
+    div.innerHTML=`<div class="msg-avatar">${role==='user'?'我':'AI'}</div><div><div class="msg-bubble">${fmt(content)}</div><div class="msg-time">${getTime()}</div></div>`;
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+
+function fmt(t){
+  return t
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/### (.*)/g,'<h4>$1</h4>')
+    .replace(/## (.*)/g,'<h3>$1</h3>')
+    .replace(/`(.*?)`/g,'<code>$1</code>')
+    .replace(/\+(\d+\.?\d*)\s*ppt/g,'<span class="pct-pos">+$1 ppt</span>')
+    .replace(/[−\-](\d+\.?\d*)\s*ppt/g,'<span class="pct-neg">−$1 ppt</span>')
+    .replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>');
+}
+
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function quickAsk(q){ switchPage('chat'); document.getElementById('chatInput').value=q; autoResize(document.getElementById('chatInput')); setTimeout(sendMessage,150); }
+
+function buildSystemPrompt(){
+  const summary=BYBIT_DATA.summary;
+  const dates=['2025-10','2025-11','2025-12','2026-01'];
+
+  // 1. Bybit summary (all regions, sorted by change)
+  const bybitLines=Object.entries(summary)
+    .filter(([,d])=>d.bybit_change!==null)
+    .sort((a,b)=>a[1].bybit_change-b[1].bybit_change)
+    .map(([r,d])=>`${r}:[${d.bybit_trend.map(v=>(v*100).toFixed(2)).join(',')}] Δ=${(d.bybit_change*100).toFixed(2)}ppt`)
+    .join('\n');
+
+  // 2. Compact market data: region -> top20 exchanges -> [oct,nov,dec,jan] local_share%
+  // Format: RegionName|EXCHANGE:[oct,nov,dec,jan];EXCHANGE2:[...];...
+  const recLookup={};
+  for(const rec of BYBIT_DATA.records){
+    const k=rec.region+'|'+rec.exchange;
+    if(!recLookup[k]) recLookup[k]={};
+    recLookup[k][rec.date]=rec.local_share;
+  }
+
+  // Group by region, sort each by Jan share, keep top 20
+  const byRegion={};
+  for(const k of Object.keys(recLookup)){
+    const [region,exchange]=k.split('|');
+    if(!byRegion[region]) byRegion[region]=[];
+    const shares=dates.map(d=>recLookup[k][d]||0);
+    byRegion[region].push({exchange,shares});
+  }
+  const compactLines=Object.entries(byRegion)
+    .sort(([a],[b])=>a.localeCompare(b))
+    .map(([region,exList])=>{
+      const top=exList.sort((a,b)=>b.shares[3]-a.shares[3]).slice(0,20);
+      const parts=top.map(e=>`${e.exchange}:[${e.shares.map(v=>(v*100).toFixed(2)).join(',')}]`);
+      return region+'|'+parts.join(';');
+    }).join('\n');
+
+  return `你是专业的加密货币交易所市场分析师，分析App下载量市场份额数据。
+
+## 数据说明
+时间：2025年10月→2026年1月（列顺序：Oct,Nov,Dec,Jan），共4个月
+指标：本地市占% = 该交易所在该地区下载量 / 该地区所有交易所总下载量
+地区：28个，交易所：160+家
+
+## Bybit 各地区本地市占（格式：[Oct,Nov,Dec,Jan]% Δ=净变化）
+${bybitLines}
+
+## 完整市场数据（每地区Top20交易所，格式：地区|交易所:[Oct,Nov,Dec,Jan]%;...）
+${compactLines}
+
+## 回答规范
+1. 用中文回答，数据精确到小数点后2位
+2. 市占变化用 ppt（百分点），如 +3.56 ppt
+3. 回答必须有数据支撑，不猜测
+4. 用 **加粗** 突出关键数字
+5. 数据中没有的信息直接说明
+6. 可用列表和表格使回答更清晰`;
+}
+
+async function sendMessage(){
+  const input=document.getElementById('chatInput');
+  const question=input.value.trim();
+  if(!question||isLoading) return;
+  if(!apiReady){
+    appendMsg('ai','⚠️ 服务端 API Key 未配置，无法使用智能问答功能。请联系管理员。');
+    return;
+  }
+  isLoading=true;
+  document.getElementById('sendBtn').disabled=true;
+  input.value=''; input.style.height='auto';
+  appendMsg('user',question);
+  const typingEl=appendMsg('ai','',true);
+  chatHistory.push({role:'user',content:question});
+  try {
+    const r=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:chatHistory,system:buildSystemPrompt()})
+    });
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`);
+    typingEl.remove();
+    appendMsg('ai',data.reply);
+    chatHistory.push({role:'assistant',content:data.reply});
+    if(chatHistory.length>20) chatHistory=chatHistory.slice(-18);
+  } catch(err){
+    typingEl.remove();
+    appendMsg('ai',`❌ 请求失败：${err.message}\n\n请检查网络连接或联系管理员。`);
+  }
+  isLoading=false;
+  document.getElementById('sendBtn').disabled=false;
+}
+
+/* ── INIT ── */
+document.addEventListener('DOMContentLoaded',()=>{
+  buildDashboard();
+  checkApiStatus();
+});
+</script>
+</body>
+</html>
