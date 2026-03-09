@@ -1,0 +1,18 @@
+{
+  "name": "bybit-market-dashboard",
+  "version": "1.0.0",
+  "description": "Bybit 地区市场份额分析看板 + Claude AI 智能问答",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
